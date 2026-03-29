@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ET News Navigator | AI Edition</title>
+    <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        /* Ultra-thin, dark scrollbars to match the spatial aesthetic */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(6,182,212,0.5); }
+        .glass-panel { 
+            background: rgba(255, 255, 255, 0.03); 
+            backdrop-filter: blur(20px); 
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08); 
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+    </style>
+</head>
+<body class="bg-slate-950 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-slate-900 via-indigo-950/20 to-black text-slate-200 h-screen flex flex-col font-sans overflow-hidden relative">
+
+    <div id="onboardingModal" class="fixed inset-0 bg-black/80 backdrop-blur-xl z-50 flex items-center justify-center hidden">
+        <div class="glass-panel p-10 rounded-3xl max-w-lg w-full text-center relative overflow-hidden">
+            <div class="absolute -top-20 -right-20 w-40 h-40 bg-cyan-500/20 rounded-full blur-3xl"></div>
+            <h2 class="text-3xl font-bold text-white mb-2 tracking-tight">Welcome to My ET</h2>
+            <p class="text-slate-400 mb-8">Select at least <span class="font-bold text-cyan-400">3 topics</span> to configure your intelligence feed. Global news is locked.</p>
+            <div id="topicSelection" class="flex flex-wrap justify-center gap-3 mb-8"></div>
+            <button onclick="savePreferences()" id="startAppBtn" class="w-full bg-white/10 text-slate-500 font-bold py-4 px-6 rounded-xl transition-all cursor-not-allowed uppercase tracking-wider text-sm" disabled>
+                Select 3 more to continue
+            </button>
+            <button onclick="clearPreferences()" class="mt-4 text-xs text-slate-500 hover:text-slate-300 underline hidden" id="resetDevBtn">Dev Tool: Reset Preferences</button>
+        </div>
+    </div>
+
+    <nav class="bg-black/20 backdrop-blur-md border-b border-white/5 p-5 flex justify-between items-center z-10">
+        <h1 class="text-2xl font-bold text-white tracking-tight flex items-center gap-3">
+            News Navigator 
+            <span class="px-2 py-1 rounded-md bg-cyan-500/10 border border-cyan-500/30 text-[10px] font-bold text-cyan-400 uppercase tracking-widest shadow-[0_0_15px_rgba(6,182,212,0.2)]">Live Agent</span>
+        </h1>
+        <div class="text-sm text-slate-400 flex items-center gap-2">
+            Welcome, Guest <span class="text-slate-600">|</span> <span class="text-emerald-400 font-semibold flex items-center gap-2"><div class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>Live Link</span>
+        </div>
+    </nav>
+
+    <main class="flex-1 flex p-6 gap-6 overflow-hidden h-full">
+        
+        <div class="w-1/4 flex flex-col gap-4">
+            <div class="glass-panel rounded-2xl p-4">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Data Streams</h2>
+                    <button onclick="clearPreferences()" class="text-[10px] text-cyan-500 hover:text-cyan-400 transition-colors">Configure</button>
+                </div>
+                <div class="flex flex-wrap gap-2" id="categoryTabs"></div>
+            </div>
+            <div class="glass-panel rounded-3xl p-3 flex-1 overflow-y-auto flex flex-col gap-3" id="newsFeed"></div>
+        </div>
+
+        <div class="w-2/5 glass-panel rounded-3xl p-8 flex flex-col relative overflow-hidden">
+            <div class="absolute -top-32 -left-32 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+            
+            <h2 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-white/10 pb-3 mb-6">Terminal Reader</h2>
+            
+            <div id="articleContent" class="flex-1 overflow-y-auto hidden pr-4 z-10">
+                <img id="readImage" src="" class="w-full h-56 object-cover rounded-2xl mb-6 shadow-lg border border-white/5">
+                <h1 id="readTitle" class="text-3xl font-bold text-white mb-3 leading-tight tracking-tight"></h1>
+                <p id="readMeta" class="text-xs text-cyan-400 mb-8 font-semibold uppercase tracking-wide"></p>
+                <div id="readBody" class="text-slate-300 font-serif leading-relaxed space-y-5 text-base text-justify"></div>
+                
+                <div class="flex gap-3 mt-10 p-4 rounded-2xl bg-black/20 border border-white/5">
+                    <select id="languageSelect" class="bg-black/40 border border-white/10 text-white py-3 px-4 rounded-xl focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 font-semibold w-1/3 text-sm transition-all cursor-pointer">
+                        <option value="English">🇬🇧 English</option>
+                        <option value="Hindi">🇮🇳 Hindi</option>
+                        <option value="Tamil">🇮🇳 Tamil</option>
+                        <option value="Telugu">🇮🇳 Telugu</option>
+                        <option value="Bengali">🇮🇳 Bengali</option>
+                    </select>
+                    <button onclick="generateBriefing()" id="generateBtn" class="flex-1 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-[0_0_20px_rgba(6,182,212,0.3)] hover:shadow-[0_0_30px_rgba(6,182,212,0.5)] hover:scale-[1.02] flex justify-center items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                        Execute Agent Pipeline
+                    </button>
+                </div>
+            </div>
+            
+            <div id="emptyReader" class="absolute inset-0 flex flex-col items-center justify-center text-slate-500 z-10">
+                <svg class="w-16 h-16 mb-4 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10l6 6v10a2 2 0 01-2 2z"></path></svg>
+                <p class="tracking-wide text-sm font-medium">Awaiting Data Stream Selection</p>
+            </div>
+        </div>
+
+        <div class="w-[35%] bg-black/40 backdrop-blur-2xl rounded-3xl border border-white/10 shadow-2xl flex flex-col overflow-hidden relative">
+            <div class="bg-gradient-to-b from-white/5 to-transparent p-4 border-b border-white/10 relative z-10">
+                <h2 class="text-xs font-bold text-slate-300 flex items-center gap-3 uppercase tracking-widest">
+                    <span class="relative flex h-2 w-2">
+                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                      <span class="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
+                    </span>
+                    Intelligence Copilot
+                </h2>
+            </div>
+            
+            <div id="chatHistory" class="flex-1 p-5 flex flex-col gap-5 overflow-y-auto text-sm">
+                <div class="text-center text-slate-600 mt-32" id="chatPlaceholder">
+                    <p class="font-mono text-xs">STATUS: IDLE<br>Execute pipeline to initialize.</p>
+                </div>
+            </div>
+            
+            <div class="p-4 bg-black/60 border-t border-white/10 flex flex-col gap-3 relative z-10">
+                <button onclick="generateStoryArc()" id="arcBtn" class="w-full bg-indigo-500/10 border border-indigo-500/30 hover:bg-indigo-500/20 text-indigo-300 text-xs font-bold py-3 rounded-xl transition-all hidden shadow-[0_0_15px_rgba(99,102,241,0.15)] uppercase tracking-wider">
+                    🗺️ Construct Story Arc Tracker
+                </button>
+                <div class="flex gap-2">
+                    <input type="text" id="chatInput" class="flex-1 p-3.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/50 focus:bg-white/10 transition-all shadow-inner" placeholder="Query the agent..." disabled>
+                    <button onclick="sendChatMessage()" id="chatBtn" class="bg-white/5 text-slate-500 px-6 py-2 rounded-xl cursor-not-allowed transition-all font-bold" disabled>Send</button>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        const allAvailableTopics = {
+            "Finance": "business", "Tech": "technology", "Startups": "business", 
+            "Sports": "sports", "Entertainment": "entertainment", "Health": "health", "Science": "science"
+        };
+        let userCategories = { "Global": "general" }; 
+        let pendingSelections = [];
+        let currentArticleText = "";
+        const fallbackImage = "https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&q=80&w=800";
+
+        function checkOnboarding() {
+            const saved = localStorage.getItem('myET_preferences');
+            if (saved) {
+                userCategories = JSON.parse(saved);
+                initAppUI();
+            } else {
+                document.getElementById('onboardingModal').classList.remove('hidden');
+                document.getElementById('resetDevBtn').classList.remove('hidden');
+                renderOnboardingOptions();
+            }
+        }
+
+        function renderOnboardingOptions() {
+            const container = document.getElementById('topicSelection');
+            container.innerHTML = `<button class="px-5 py-2.5 rounded-xl text-sm font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 cursor-not-allowed shadow-[0_0_10px_rgba(6,182,212,0.2)]" disabled>🌍 Global (Required)</button>`;
+            Object.keys(allAvailableTopics).forEach(topic => {
+                const btn = document.createElement('button');
+                btn.className = "px-5 py-2.5 rounded-xl text-sm font-semibold bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10 transition-all";
+                btn.innerText = topic;
+                btn.onclick = () => toggleTopic(topic, btn);
+                container.appendChild(btn);
+            });
+        }
+
+        function toggleTopic(topic, btn) {
+            if (pendingSelections.includes(topic)) {
+                pendingSelections = pendingSelections.filter(t => t !== topic);
+                btn.className = "px-5 py-2.5 rounded-xl text-sm font-semibold bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10 transition-all";
+            } else {
+                pendingSelections.push(topic);
+                btn.className = "px-5 py-2.5 rounded-xl text-sm font-semibold bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 shadow-[0_0_15px_rgba(6,182,212,0.2)] transition-all";
+            }
+            const needed = 3 - pendingSelections.length;
+            const startBtn = document.getElementById('startAppBtn');
+            if (needed <= 0) {
+                startBtn.disabled = false;
+                startBtn.innerText = "Initialize Newsroom";
+                startBtn.className = "w-full font-bold py-4 px-6 rounded-xl transition-all bg-gradient-to-r from-cyan-500 to-blue-600 text-white hover:scale-[1.02] shadow-[0_0_20px_rgba(6,182,212,0.4)] uppercase tracking-wider text-sm border-none";
+            } else {
+                startBtn.disabled = true;
+                startBtn.innerText = `Select ${needed} more to continue`;
+                startBtn.className = "w-full bg-white/5 text-slate-500 border border-white/5 font-bold py-4 px-6 rounded-xl transition-all cursor-not-allowed uppercase tracking-wider text-sm";
+            }
+        }
+
+        function savePreferences() {
+            pendingSelections.forEach(topic => userCategories[topic] = allAvailableTopics[topic]);
+            localStorage.setItem('myET_preferences', JSON.stringify(userCategories));
+            document.getElementById('onboardingModal').classList.add('hidden');
+            initAppUI();
+        }
+
+        function clearPreferences() {
+            localStorage.removeItem('myET_preferences');
+            location.reload(); 
+        }
+
+        function initAppUI() {
+            const tabsContainer = document.getElementById('categoryTabs');
+            tabsContainer.innerHTML = ""; 
+            const firstCategoryName = Object.keys(userCategories)[0];
+            Object.keys(userCategories).forEach((displayName, index) => {
+                const apiCategory = userCategories[displayName];
+                const btn = document.createElement('button');
+                btn.className = `px-4 py-1.5 rounded-lg text-[11px] uppercase tracking-wider font-bold transition-all ${index === 0 ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 shadow-[0_0_10px_rgba(6,182,212,0.2)]' : 'bg-white/5 text-slate-400 border border-white/5 hover:bg-white/10 hover:text-white'}`;
+                btn.innerText = displayName;
+                btn.onclick = () => loadCategory(apiCategory, btn);
+                tabsContainer.appendChild(btn);
+            });
+            loadCategory(userCategories[firstCategoryName], tabsContainer.firstChild); 
+        }
+
+        async function loadCategory(apiCategory, clickedBtn) {
+            Array.from(document.getElementById('categoryTabs').children).forEach(btn => btn.className = 'px-4 py-1.5 rounded-lg text-[11px] uppercase tracking-wider font-bold transition-all bg-white/5 text-slate-400 border border-white/5 hover:bg-white/10 hover:text-white');
+            clickedBtn.className = 'px-4 py-1.5 rounded-lg text-[11px] uppercase tracking-wider font-bold transition-all bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 shadow-[0_0_10px_rgba(6,182,212,0.2)]';
+            
+            const feed = document.getElementById('newsFeed');
+            feed.innerHTML = "<div class='text-center text-slate-500 mt-10 animate-pulse text-xs uppercase tracking-widest'>Syncing Data...</div>";
+            try {
+                const response = await fetch(`http://127.0.0.1:5000/api/news?category=${apiCategory}`);
+                const articles = await response.json();
+                feed.innerHTML = ""; 
+                if (articles.length === 0) return feed.innerHTML = "<div class='text-center text-slate-500 mt-10 text-xs'>No streams found.</div>";
+                
+                articles.forEach(article => {
+                    if (article.title === "[Removed]" || !article.title) return;
+                    const imageUrl = article.urlToImage || fallbackImage;
+                    const date = new Date(article.publishedAt).toLocaleDateString();
+                    const card = document.createElement('div');
+                    // Radical visual update for news cards
+                    card.className = "p-3.5 bg-white/5 border border-white/5 rounded-2xl hover:bg-white/10 hover:-translate-y-1 hover:border-cyan-500/30 hover:shadow-[0_8px_20px_rgba(6,182,212,0.15)] cursor-pointer transition-all duration-300 flex gap-4 items-center group";
+                    card.innerHTML = `<img src="${imageUrl}" class="w-16 h-16 object-cover rounded-xl shadow-md border border-white/10 group-hover:border-cyan-500/50 transition-colors">
+                        <div class="flex-1">
+                            <h3 class="font-bold text-sm text-slate-200 leading-tight mb-1.5 line-clamp-2 group-hover:text-cyan-300 transition-colors">${article.title}</h3>
+                            <p class="text-[10px] text-slate-500 uppercase tracking-wide font-semibold">${article.source.name} <span class="text-slate-700 mx-1">•</span> ${date}</p>
+                        </div>`;
+                    card.onclick = () => openArticle(article.title, article.source.name, article.description || "", imageUrl, date);
+                    feed.appendChild(card);
+                });
+            } catch (error) { feed.innerHTML = "<div class='text-center text-red-400 mt-10 text-xs'>Connection failed.</div>"; }
+        }
+
+        function openArticle(title, source, content, imageUrl, date) {
+            document.getElementById('emptyReader').classList.add('hidden');
+            document.getElementById('articleContent').classList.remove('hidden');
+            document.getElementById('readImage').src = imageUrl;
+            document.getElementById('readTitle').innerText = title;
+            document.getElementById('readMeta').innerText = `${source} • ${date}`;
+            document.getElementById('readBody').innerHTML = `<p>${content}</p>`;
+            
+            currentArticleText = `Title: ${title}\nSource: ${source}\nContent: ${content}`; 
+            document.getElementById('chatHistory').innerHTML = `<div class="text-center text-slate-600 mt-32" id="chatPlaceholder"><p class="font-mono text-xs">STATUS: IDLE<br>Execute pipeline to initialize.</p></div>`;
+            lockChat();
+            
+            const btn = document.getElementById('generateBtn');
+            btn.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg> Execute Agent Pipeline`;
+            btn.disabled = false;
+            document.getElementById('arcBtn').classList.add('hidden'); 
+        }
+
+      async function generateBriefing() {
+            const btn = document.getElementById('generateBtn');
+            btn.innerHTML = `<svg class="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Running Pipeline...`;
+            btn.disabled = true;
+
+            document.getElementById('chatPlaceholder').style.display = 'none';
+            addMessageToChat("System", "<span class='animate-pulse text-blue-400'>Ingesting data & extracting entities...</span>", true);
+
+            const selectedLanguage = document.getElementById('languageSelect').value;
+            const topicsString = Object.keys(userCategories).join(", ");
+            
+            // NEW: Grab the user's hidden affinities from local storage
+            const savedAffinities = JSON.parse(localStorage.getItem('myET_affinities') || '[]');
+
+            try {
+                const response = await fetch('http://127.0.0.1:5000/api/briefing', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        message: currentArticleText, 
+                        language: selectedLanguage, 
+                        user_topics: topicsString,
+                        user_affinities: savedAffinities // Send them to the backend!
+                    })
+                });
+
+                const data = await response.json();
+                document.getElementById('chatHistory').lastChild.remove(); 
+
+                if (data.summary) {
+                    const sentimentColor = data.sentiment === 'Bullish' ? 'bg-green-900 text-green-400 border-green-700' : (data.sentiment === 'Bearish' ? 'bg-red-900 text-red-400 border-red-700' : 'bg-slate-700 text-slate-300 border-slate-600');
+                    
+                    // NEW: Encode entities so we can pass them to our button click
+                    const encodedEntities = encodeURIComponent(JSON.stringify(data.entities));
+
+                    let agentHtml = `
+                        <div class="mb-4 flex justify-between items-center border-b border-slate-700 pb-2">
+                            <span class="text-[10px] uppercase tracking-wider font-bold text-blue-400">Agent Pipeline Complete</span>
+                            <span class="px-2 py-1 rounded text-[10px] font-bold border ${sentimentColor}">${data.sentiment} Sentiment</span>
+                        </div>
+                        <div class="mb-4 text-slate-200">
+                            <p class="font-semibold text-sm mb-3">${data.summary}</p>
+                            <ul class="list-disc pl-5 space-y-1 text-xs text-slate-300">${data.impact.map(i => `<li>${i}</li>`).join('')}</ul>
+                        </div>
+                        <div class="mt-3 pt-3 bg-slate-900/50 p-2 rounded">
+                            <span class="text-[10px] text-slate-400 block mb-2 font-bold uppercase">Entities Extracted:</span>
+                            <div class="flex flex-wrap gap-1.5">
+                                ${data.entities.map(e => `<span class="bg-slate-800 text-blue-300 px-2 py-1 rounded text-[10px] border border-blue-900 shadow-sm">${e}</span>`).join('')}
+                            </div>
+                        </div>
+                        
+                        <div class="mt-4 pt-3 border-t border-slate-700/50 flex items-center justify-between">
+                            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Tune Your Feed</span>
+                            <div class="flex gap-2">
+                                <button onclick="recordEngagement(true, '${encodedEntities}', this)" class="bg-slate-800 hover:bg-green-900/40 text-slate-400 hover:text-green-400 border border-slate-700 px-3 py-1.5 rounded text-xs transition-all shadow-sm">👍 More like this</button>
+                                <button onclick="recordEngagement(false, '${encodedEntities}', this)" class="bg-slate-800 hover:bg-red-900/40 text-slate-400 hover:text-red-400 border border-slate-700 px-3 py-1.5 rounded text-xs transition-all shadow-sm">👎 Less</button>
+                            </div>
+                        </div>
+                    `;
+                    addMessageToChat("AI Agent", agentHtml, true);
+                    unlockChat();
+                    document.getElementById('arcBtn').classList.remove('hidden');
+                } else {
+                    addMessageToChat("System", "Error parsing agent response.");
+                }
+            } catch (error) {
+                document.getElementById('chatHistory').lastChild.remove();
+                addMessageToChat("System", "Failed to connect to Python backend.");
+            }
+            btn.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Pipeline Executed`;
+        }
+
+        // --- NEW: Handle Engagement Loop ---
+        function recordEngagement(isPositive, entitiesStr, btnElement) {
+            if (isPositive) {
+                // Decode the entities the AI extracted
+                const entities = JSON.parse(decodeURIComponent(entitiesStr));
+                
+                // Get existing affinities from memory
+                let affinities = JSON.parse(localStorage.getItem('myET_affinities') || '[]');
+                
+                // Add the new entities (avoiding duplicates)
+                entities.forEach(e => {
+                    if (!affinities.includes(e)) affinities.unshift(e);
+                });
+                
+                // Keep only the most recent 15 entities so the prompt doesn't get too massive
+                affinities = affinities.slice(0, 15); 
+                
+                // Save back to memory
+                localStorage.setItem('myET_affinities', JSON.stringify(affinities));
+            }
+            
+            // Give the user beautiful UI feedback
+            const container = btnElement.parentElement.parentElement;
+            container.innerHTML = `<span class="text-[10px] font-bold text-blue-400 uppercase tracking-widest flex items-center gap-2"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Agent Retuned for Next Session</span>`;
+        }
+
+
+        async function generateStoryArc() {
+            const arcBtn = document.getElementById('arcBtn');
+            arcBtn.innerHTML = "⏳ Synthesizing Narrative...";
+            arcBtn.disabled = true;
+            arcBtn.classList.add('opacity-50');
+
+            addMessageToChat("Agent", "<span class='animate-pulse text-indigo-400 font-mono text-xs'>[Retrieving Historical Context...]</span>", true);
+
+            try {
+                const response = await fetch('http://127.0.0.1:5000/api/storyarc', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ article: currentArticleText })
+                });
+
+                const data = await response.json();
+                document.getElementById('chatHistory').lastChild.remove(); 
+
+                if (data.timeline) {
+                    let timelineHtml = `<div class="mb-2"><span class="text-[10px] uppercase tracking-widest font-bold text-indigo-400 block mb-5 border-b border-white/10 pb-3 flex items-center gap-2">🗺️ Arc Tracker Active</span>`;
+                    
+                    timelineHtml += `<div class="border-l border-indigo-500/50 ml-3 pl-6 py-2 space-y-6 relative">`;
+                    data.timeline.forEach(item => {
+                        timelineHtml += `
+                            <div class="relative group">
+                                <div class="absolute -left-[30px] top-1 h-3 w-3 bg-slate-900 border-2 border-indigo-400 rounded-full shadow-[0_0_10px_rgba(129,140,248,0.8)] group-hover:bg-indigo-400 transition-colors duration-300 z-10"></div>
+                                <span class="text-[10px] font-bold text-indigo-300 uppercase tracking-widest bg-indigo-500/10 px-2 py-0.5 rounded-sm border border-indigo-500/20">${item.date}</span>
+                                <p class="text-sm text-slate-300 mt-2.5 leading-relaxed">${item.event}</p>
+                            </div>
+                        `;
+                    });
+                    timelineHtml += `</div></div>`;
+
+                    timelineHtml += `
+                        <div class="bg-gradient-to-br from-amber-500/10 to-transparent p-5 rounded-2xl border border-amber-500/20 mt-6 relative overflow-hidden">
+                            <div class="absolute top-0 left-0 w-1 h-full bg-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.8)]"></div>
+                            <h4 class="text-[10px] text-amber-400 font-bold uppercase tracking-widest mb-2 flex items-center gap-2">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                                Contrarian Logic
+                            </h4>
+                            <p class="text-sm text-amber-100/80 italic mb-5 leading-relaxed">"${data.contrarian}"</p>
+                            
+                            <h4 class="text-[10px] text-cyan-400 font-bold uppercase tracking-widest mb-2 mt-5 pt-5 border-t border-white/5">Predictive Outlook</h4>
+                            <p class="text-sm text-cyan-50/90 leading-relaxed">${data.prediction}</p>
+                        </div>
+                    `;
+
+                    addMessageToChat("Agent", timelineHtml, true);
+                }
+            } catch (error) {
+                document.getElementById('chatHistory').lastChild.remove();
+                addMessageToChat("System", "<span class='text-rose-400'>Arc construction failed.</span>", true);
+            }
+            
+            arcBtn.innerHTML = "🗺️ Construct Story Arc Tracker";
+            arcBtn.disabled = false;
+            arcBtn.classList.remove('opacity-50');
+        }
+
+        async function sendChatMessage() {
+            const inputField = document.getElementById('chatInput');
+            const question = inputField.value;
+            const selectedLanguage = document.getElementById('languageSelect').value;
+            if (!question) return;
+
+            addMessageToChat("User", question);
+            inputField.value = ""; 
+            addMessageToChat("Agent", "<span class='animate-pulse text-cyan-400 font-mono text-xs'>[Processing Query...]</span>", true);
+
+            try {
+                const response = await fetch('http://127.0.0.1:5000/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ article: currentArticleText, question: question, language: selectedLanguage })
+                });
+
+                const data = await response.json();
+                document.getElementById('chatHistory').lastChild.remove(); 
+                if (data.reply) addMessageToChat("Agent", data.reply);
+            } catch (error) {
+                document.getElementById('chatHistory').lastChild.remove();
+                addMessageToChat("System", "<span class='text-rose-400'>Query failed.</span>", true);
+            }
+        }
+
+        function addMessageToChat(sender, text, isRawHtml = false) {
+            const chatHistory = document.getElementById('chatHistory');
+            const isUser = sender === "User";
+            let formattedText = isRawHtml ? text : marked.parse(text); 
+            
+            // Updated Chat Bubble Styling for Dark Mode
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `p-4 rounded-2xl max-w-[95%] text-sm shadow-lg backdrop-blur-md ${
+                isUser 
+                ? 'bg-gradient-to-br from-cyan-600 to-blue-700 text-white self-end rounded-br-sm border border-cyan-400/30 shadow-[0_4px_20px_rgba(6,182,212,0.2)]' 
+                : 'bg-white/5 border border-white/10 text-slate-200 self-start rounded-bl-sm w-full'
+            }`;
+            
+            msgDiv.innerHTML = `<div class="text-[9px] font-bold mb-2 uppercase tracking-widest ${isUser ? 'text-cyan-200' : 'text-slate-500'}">${sender}</div><div class="prose prose-invert prose-sm leading-relaxed">${formattedText}</div>`;
+            
+            chatHistory.appendChild(msgDiv);
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+        }
+
+        function unlockChat() {
+            const input = document.getElementById('chatInput');
+            const btn = document.getElementById('chatBtn');
+            input.disabled = false; btn.disabled = false;
+            btn.className = "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 hover:bg-cyan-500/30 hover:border-cyan-400 px-6 py-2 rounded-xl transition-all font-bold cursor-pointer shadow-[0_0_15px_rgba(6,182,212,0.1)]";
+        }
+        
+        function lockChat() {
+            const input = document.getElementById('chatInput');
+            const btn = document.getElementById('chatBtn');
+            input.disabled = true; input.value = ""; btn.disabled = true;
+            btn.className = "bg-white/5 text-slate-600 border border-white/5 px-6 py-2 rounded-xl cursor-not-allowed transition-all font-bold";
+        }
+
+        checkOnboarding();
+        document.getElementById("chatInput").addEventListener("keypress", function(event) {
+            if (event.key === "Enter") { event.preventDefault(); document.getElementById("chatBtn").click(); }
+        });
+    </script>
+</body>
+</html>
